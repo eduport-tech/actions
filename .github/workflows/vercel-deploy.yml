@@ -63,10 +63,10 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm install
+        run: pnpm install
 
       - name: Install Vercel CLI
-        run: npm install -g vercel
+        run: pnpm install -g vercel
 
       - name: Build project
         run: vercel build --token "$VERCEL_TOKEN" ${{ steps.prepare.outputs.build_flag }} --yes
