@@ -51,10 +51,13 @@ jobs:
           token: ${{ steps.app-token.outputs.token }}
           fetch-depth: 0
 
-    #   - name: Configure Vercel Project
-    #     run: |
-    #       mkdir -p .vercel
-    #       echo "${{ env.VERCEL_PROJECT_BASE64 }}" | base64 --decode > .vercel/project.json
+      - name: Configure Vercel Project
+        env:
+          VERCEL_ORG_ID: ${{ steps.prepare.outputs.vercel_org_id }}
+          VERCEL_PROJECT_ID: ${{ steps.prepare.outputs.vercel_project_id }}
+        run: |
+          mkdir -p .vercel
+          echo "{\"projectId\":\"$VERCEL_PROJECT_ID\",\"orgId\":\"$VERCEL_ORG_ID\"}" > .vercel/project.json
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
