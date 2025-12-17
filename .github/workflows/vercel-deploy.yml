@@ -17,14 +17,7 @@ jobs:
         run: |
           REPO="${{ github.event.client_payload.repo }}"
           BRANCH="${{ github.event.client_payload.branch }}"
-          SLUG="${{ github.event.client_payload.project_slug }}"
-          PR="${{ github.event.client_payload.pr_number || '' }}"
-          
-          echo "repo=$REPO" >> "$GITHUB_OUTPUT"
-          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
-          echo "owner=${REPO%%/*}" >> "$GITHUB_OUTPUT"
           echo "name=${REPO#*/}" >> "$GITHUB_OUTPUT"
-          echo "project_slug=$SLUG" >> "$GITHUB_OUTPUT"
           echo "pr_number=$PR" >> "$GITHUB_OUTPUT"
           echo "vercel_project_id=${{ github.event.client_payload.vercel_project_id }}" >> "$GITHUB_OUTPUT"
           echo "vercel_org_id=${{ github.event.client_payload.vercel_org_id }}" >> "$GITHUB_OUTPUT"

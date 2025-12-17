@@ -53,10 +53,9 @@ jobs:
           client-payload: >-
             {
               "repo": ${{ toJSON(github.repository) }}, 
-              "branch": ${{ toJSON(github.ref_name) }},
+              "branch": ${{ toJSON(github.head_ref || github.ref_name) }},
               "pr_number": ${{ toJSON(steps.pr.outputs.number) }},
-              "project_slug": "${{ github.event.repository.name }}",
-              "vercel_project_id": "${{ secrets.VERCEL_PROJECT_ID }",
+              "vercel_project_id": "${{ secrets.VERCEL_PROJECT_ID }}",
               "vercel_org_id": "${{ secrets.VERCEL_ORG_ID }}"
             }
 ```
