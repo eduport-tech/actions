@@ -26,6 +26,8 @@ jobs:
           echo "name=${REPO#*/}" >> "$GITHUB_OUTPUT"
           echo "project_slug=$SLUG" >> "$GITHUB_OUTPUT"
           echo "pr_number=$PR" >> "$GITHUB_OUTPUT"
+          echo "vercel_project_id=${{ github.event.client_payload.vercel_project_id }}" >> "$GITHUB_OUTPUT"
+          echo "vercel_org_id=${{ github.event.client_payload.vercel_org_id }}" >> "$GITHUB_OUTPUT"
           
           if [[ "$BRANCH" == "main" || "$BRANCH" == "master" ]]; then
             echo "type=prod" >> "$GITHUB_OUTPUT"
