@@ -69,7 +69,7 @@ jobs:
             echo "command=install" >> $GITHUB_OUTPUT
           else
             echo "manager=npm" >> $GITHUB_OUTPUT
-            echo "command=ci" >> $GITHUB_OUTPUT
+            echo "command=install" >> $GITHUB_OUTPUT
           fi
 
       - name: Install pnpm
