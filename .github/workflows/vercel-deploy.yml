@@ -47,7 +47,8 @@ jobs:
           fetch-depth: 0
 
       - name: Verify Checkout Content
-        run: ls -R
+        run: cat README.md
+        
 
       - name: Configure Vercel Project
         env:
