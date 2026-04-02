@@ -18,18 +18,23 @@ jobs:
           REPO="${{ github.event.client_payload.repo }}"
           BRANCH="${{ github.event.client_payload.branch }}"
           PR_NUMBER="${{ github.event.client_payload.pr_number }}"
+          SHA="${{ github.event.client_payload.sha }}"
+          CUSTOM_DOMAIN="${{ github.event.client_payload.custom_domain }}"
           echo "repo=$REPO" >> "$GITHUB_OUTPUT"
+          echo "owner=${REPO%/*}" >> "$GITHUB_OUTPUT"
           echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
           echo "name=${REPO#*/}" >> "$GITHUB_OUTPUT"
           echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "custom_domain=$CUSTOM_DOMAIN" >> "$GITHUB_OUTPUT"
           echo "vercel_project_id=${{ github.event.client_payload.vercel_project_id }}" >> "$GITHUB_OUTPUT"
           echo "vercel_org_id=${{ github.event.client_payload.vercel_org_id }}" >> "$GITHUB_OUTPUT"
-          
+
           if [[ "$BRANCH" == "main" || "$BRANCH" == "master" ]]; then
-            echo "type=prod" >> "$GITHUB_OUTPUT"
+            echo "type=Production" >> "$GITHUB_OUTPUT"
             echo "build_flag=--prod" >> "$GITHUB_OUTPUT"
           else
-            echo "type=staging" >> "$GITHUB_OUTPUT"
+            echo "type=Preview" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Mint GitHub App token
@@ -48,10 +53,6 @@ jobs:
           ref: ${{ steps.prepare.outputs.branch }}
           token: ${{ steps.app-token.outputs.token }}
           fetch-depth: 0
-
-      - name: Verify Checkout Content
-        run: cat README.md
-        
 
       - name: Configure Vercel Project
         env:
@@ -83,18 +84,59 @@ jobs:
           URL=$(vercel deploy --token "$VERCEL_TOKEN" ${{ steps.prepare.outputs.build_flag }} --yes)
           echo "deploy_url=$URL" >> "$GITHUB_OUTPUT"
 
-      - name: Comment on PR (if applicable)
+      - name: Comment on PR
         if: ${{ steps.prepare.outputs.pr_number != '' }}
         uses: actions/github-script@v7
         with:
           github-token: ${{ steps.app-token.outputs.token }}
           script: |
+            const owner = "${{ steps.prepare.outputs.owner }}";
+            const repo = "${{ steps.prepare.outputs.name }}";
             const pr = ${{ steps.prepare.outputs.pr_number }};
-            const url = `${{ steps.deploy.outputs.deploy_url }}`;
-            if (!pr || !url) return;
-            await github.rest.issues.createComment({
-              owner: "${{ steps.prepare.outputs.owner }}",
-              repo: "${{ steps.prepare.outputs.name }}",
-              issue_number: pr,
-              body: `🚀 **Deployed Preview**: [View](${url})`
+            const deployUrl = `${{ steps.deploy.outputs.deploy_url }}`;
+            const branch = `${{ steps.prepare.outputs.branch }}`;
+            const sha = `${{ steps.prepare.outputs.sha }}`;
+            const type = `${{ steps.prepare.outputs.type }}`;
+            const customDomain = `${{ steps.prepare.outputs.custom_domain }}`;
+            const shortSha = sha.substring(0, 7);
+            const commitUrl = `https://github.com/${owner}/${repo}/commit/${sha}`;
+            const now = new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'UTC' });
+
+            if (!pr || !deployUrl) return;
+
+            let domainSection = '';
+            if (customDomain) {
+              domainSection = `\n| **Domain** | [${customDomain}](https://${customDomain}) |`;
+            }
+
+            const body = [
+              `| Name | Status | Preview | Updated (UTC) |`,
+              `| :--- | :----- | :------ | :------------ |`,
+              `| **${repo}** | ✅ Ready | [Visit ${type}](${deployUrl}) | ${now} |`,
+              ``,
+              `| | |`,
+              `| :--- | :--- |`,
+              `| **Commit** | [\`${shortSha}\`](${commitUrl}) |`,
+              `| **Branch** | ${branch} |`,
+              `| **Environment** | ${type} |`,
+              domainSection,
+            ].filter(Boolean).join('\n');
+
+            const marker = '<!-- vercel-deploy-comment -->';
+            const fullBody = `${marker}\n${body}`;
+
+            // Find existing comment to update instead of creating duplicates
+            const { data: comments } = await github.rest.issues.listComments({
+              owner, repo, issue_number: pr
             });
+            const existing = comments.find(c => c.body.includes(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner, repo, comment_id: existing.id, body: fullBody
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: pr, body: fullBody
+              });
+            }
