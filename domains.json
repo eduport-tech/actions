@@ -1,0 +1,6 @@
+{
+  "eduport-tech/eduone-content-dashboard": {
+    "dev": "dev.content.eduport.in",
+    "QUESTION-INVENTORY": "qi.content.eduport.in"
+  }
+}
