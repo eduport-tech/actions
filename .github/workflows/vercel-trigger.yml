@@ -5,8 +5,10 @@
 name: Request Central Vercel Deployment
 
 on:
-#   Uncomment this
+  workflow_dispatch:
+#   Uncomment push trigger when copying to target repo
 #  push:
+#    branches: [main, dev]
 
 permissions:
   pull-requests: read
