@@ -89,7 +89,15 @@ jobs:
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
-          vercel alias set "${{ steps.deploy.outputs.deploy_url }}" "${{ steps.prepare.outputs.custom_domain }}" --token "$VERCEL_TOKEN" --scope "${{ steps.prepare.outputs.vercel_org_id }}"
+          # Extract deployment ID from the deploy URL
+          DEPLOY_HOST=$(echo "${{ steps.deploy.outputs.deploy_url }}" | sed 's|https://||')
+
+          # Use Vercel API to assign alias
+          curl -s -X POST "https://api.vercel.com/v2/deployments/${DEPLOY_HOST}/aliases" \
+            -H "Authorization: Bearer $VERCEL_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{\"alias\": \"${{ steps.prepare.outputs.custom_domain }}\"}" \
+            --fail-with-body
 
       - name: Build comment body
         id: comment
