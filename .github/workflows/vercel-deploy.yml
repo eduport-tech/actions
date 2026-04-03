@@ -84,6 +84,13 @@ jobs:
           URL=$(vercel deploy --token "$VERCEL_TOKEN" ${{ steps.prepare.outputs.build_flag }} --yes)
           echo "deploy_url=$URL" >> "$GITHUB_OUTPUT"
 
+      - name: Alias custom domain
+        if: ${{ steps.prepare.outputs.custom_domain != '' }}
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          vercel alias set "${{ steps.deploy.outputs.deploy_url }}" "${{ steps.prepare.outputs.custom_domain }}" --token "$VERCEL_TOKEN" --scope "${{ steps.prepare.outputs.vercel_org_id }}"
+
       - name: Comment on PR
         if: ${{ steps.prepare.outputs.pr_number != '' }}
         uses: actions/github-script@v7
