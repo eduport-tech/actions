@@ -20,7 +20,11 @@ jobs:
     steps:
       - name: Find open PR for this branch
         id: pr
-        uses: jwalton/gh-find-current-pr@v1
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PR_NUMBER=$(gh pr list --repo "${{ github.repository }}" --search "${{ github.sha }}" --state open --json number --jq '.[0].number // empty')
+          echo "number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
 
       - name: Dispatch to central repo
         uses: peter-evans/repository-dispatch@v4
