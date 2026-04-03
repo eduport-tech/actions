@@ -156,13 +156,15 @@ jobs:
       - name: Comment on PR
         if: ${{ steps.prepare.outputs.pr_number != '' }}
         uses: actions/github-script@v7
+        env:
+          COMMENT_BODY: ${{ steps.comment.outputs.body }}
         with:
           github-token: ${{ steps.app-token.outputs.token }}
           script: |
             const owner = "${{ steps.prepare.outputs.owner }}";
             const repo = "${{ steps.prepare.outputs.name }}";
             const pr = ${{ steps.prepare.outputs.pr_number }};
-            const body = `${{ steps.comment.outputs.body }}`;
+            const body = process.env.COMMENT_BODY;
             const marker = '<!-- vercel-deploy-comment -->';
 
             if (!pr || !body) return;
@@ -185,13 +187,15 @@ jobs:
       - name: Comment on commit
         if: ${{ steps.prepare.outputs.pr_number == '' && steps.prepare.outputs.sha != '' }}
         uses: actions/github-script@v7
+        env:
+          COMMENT_BODY: ${{ steps.comment.outputs.body }}
         with:
           github-token: ${{ steps.app-token.outputs.token }}
           script: |
             const owner = "${{ steps.prepare.outputs.owner }}";
             const repo = "${{ steps.prepare.outputs.name }}";
             const sha = "${{ steps.prepare.outputs.sha }}";
-            const body = `${{ steps.comment.outputs.body }}`;
+            const body = process.env.COMMENT_BODY;
 
             if (!sha || !body) return;
 
