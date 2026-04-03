@@ -89,14 +89,26 @@ jobs:
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
-          # Extract deployment ID from the deploy URL
-          DEPLOY_HOST=$(echo "${{ steps.deploy.outputs.deploy_url }}" | sed 's|https://||')
+          DEPLOY_URL="${{ steps.deploy.outputs.deploy_url }}"
+          DOMAIN="${{ steps.prepare.outputs.custom_domain }}"
 
-          # Use Vercel API to assign alias
-          curl -s -X POST "https://api.vercel.com/v2/deployments/${DEPLOY_HOST}/aliases" \
+          # Get the deployment ID using vercel inspect
+          DEPLOY_ID=$(vercel inspect "$DEPLOY_URL" --token "$VERCEL_TOKEN" 2>&1 | grep -oP 'id\s+\K\S+' || true)
+
+          # Fallback: query the API by URL to get the deployment ID
+          if [ -z "$DEPLOY_ID" ]; then
+            DEPLOY_HOST=$(echo "$DEPLOY_URL" | sed 's|https://||')
+            DEPLOY_ID=$(curl -s "https://api.vercel.com/v13/deployments?url=${DEPLOY_HOST}&teamId=${{ steps.prepare.outputs.vercel_org_id }}" \
+              -H "Authorization: Bearer $VERCEL_TOKEN" | jq -r '.deployments[0].uid')
+          fi
+
+          echo "Deployment ID: $DEPLOY_ID"
+
+          # Assign alias using deployment ID
+          curl -s -X POST "https://api.vercel.com/v2/deployments/${DEPLOY_ID}/aliases" \
             -H "Authorization: Bearer $VERCEL_TOKEN" \
             -H "Content-Type: application/json" \
-            -d "{\"alias\": \"${{ steps.prepare.outputs.custom_domain }}\"}" \
+            -d "{\"alias\": \"${DOMAIN}\"}" \
             --fail-with-body
 
       - name: Build comment body
