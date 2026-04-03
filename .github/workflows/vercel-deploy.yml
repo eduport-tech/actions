@@ -91,6 +91,48 @@ jobs:
         run: |
           vercel alias set "${{ steps.deploy.outputs.deploy_url }}" "${{ steps.prepare.outputs.custom_domain }}" --token "$VERCEL_TOKEN" --scope "${{ steps.prepare.outputs.vercel_org_id }}"
 
+      - name: Build comment body
+        id: comment
+        run: |
+          OWNER="${{ steps.prepare.outputs.owner }}"
+          REPO="${{ steps.prepare.outputs.name }}"
+          SHA="${{ steps.prepare.outputs.sha }}"
+          BRANCH="${{ steps.prepare.outputs.branch }}"
+          TYPE="${{ steps.prepare.outputs.type }}"
+          DEPLOY_URL="${{ steps.deploy.outputs.deploy_url }}"
+          CUSTOM_DOMAIN="${{ steps.prepare.outputs.custom_domain }}"
+          SHORT_SHA="${SHA:0:7}"
+          COMMIT_URL="https://github.com/${OWNER}/${REPO}/commit/${SHA}"
+          NOW=$(date -u +"%b %-d, %Y, %-I:%M %p")
+
+          DOMAIN_ROW=""
+          if [ -n "$CUSTOM_DOMAIN" ]; then
+            DOMAIN_ROW="| **Domain** | [${CUSTOM_DOMAIN}](https://${CUSTOM_DOMAIN}) |"
+          fi
+
+          BODY=$(cat <<HEREDOC
+          <!-- vercel-deploy-comment -->
+          | Name | Status | Preview | Updated (UTC) |
+          | :--- | :----- | :------ | :------------ |
+          | **${REPO}** | ✅ Ready | [Visit ${TYPE}](${DEPLOY_URL}) | ${NOW} |
+
+          | | |
+          | :--- | :--- |
+          | **Commit** | [\`${SHORT_SHA}\`](${COMMIT_URL}) |
+          | **Branch** | ${BRANCH} |
+          | **Environment** | ${TYPE} |
+          ${DOMAIN_ROW}
+          HEREDOC
+          )
+
+          # Remove leading whitespace from heredoc indentation
+          BODY=$(echo "$BODY" | sed 's/^          //')
+
+          EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+          echo "body<<$EOF" >> "$GITHUB_OUTPUT"
+          echo "$BODY" >> "$GITHUB_OUTPUT"
+          echo "$EOF" >> "$GITHUB_OUTPUT"
+
       - name: Comment on PR
         if: ${{ steps.prepare.outputs.pr_number != '' }}
         uses: actions/github-script@v7
@@ -100,39 +142,11 @@ jobs:
             const owner = "${{ steps.prepare.outputs.owner }}";
             const repo = "${{ steps.prepare.outputs.name }}";
             const pr = ${{ steps.prepare.outputs.pr_number }};
-            const deployUrl = `${{ steps.deploy.outputs.deploy_url }}`;
-            const branch = `${{ steps.prepare.outputs.branch }}`;
-            const sha = `${{ steps.prepare.outputs.sha }}`;
-            const type = `${{ steps.prepare.outputs.type }}`;
-            const customDomain = `${{ steps.prepare.outputs.custom_domain }}`;
-            const shortSha = sha.substring(0, 7);
-            const commitUrl = `https://github.com/${owner}/${repo}/commit/${sha}`;
-            const now = new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'UTC' });
-
-            if (!pr || !deployUrl) return;
-
-            let domainSection = '';
-            if (customDomain) {
-              domainSection = `\n| **Domain** | [${customDomain}](https://${customDomain}) |`;
-            }
-
-            const body = [
-              `| Name | Status | Preview | Updated (UTC) |`,
-              `| :--- | :----- | :------ | :------------ |`,
-              `| **${repo}** | ✅ Ready | [Visit ${type}](${deployUrl}) | ${now} |`,
-              ``,
-              `| | |`,
-              `| :--- | :--- |`,
-              `| **Commit** | [\`${shortSha}\`](${commitUrl}) |`,
-              `| **Branch** | ${branch} |`,
-              `| **Environment** | ${type} |`,
-              domainSection,
-            ].filter(Boolean).join('\n');
-
+            const body = `${{ steps.comment.outputs.body }}`;
             const marker = '<!-- vercel-deploy-comment -->';
-            const fullBody = `${marker}\n${body}`;
 
-            // Find existing comment to update instead of creating duplicates
+            if (!pr || !body) return;
+
             const { data: comments } = await github.rest.issues.listComments({
               owner, repo, issue_number: pr
             });
@@ -140,10 +154,27 @@ jobs:
 
             if (existing) {
               await github.rest.issues.updateComment({
-                owner, repo, comment_id: existing.id, body: fullBody
+                owner, repo, comment_id: existing.id, body
               });
             } else {
               await github.rest.issues.createComment({
-                owner, repo, issue_number: pr, body: fullBody
+                owner, repo, issue_number: pr, body
               });
             }
+
+      - name: Comment on commit
+        if: ${{ steps.prepare.outputs.pr_number == '' && steps.prepare.outputs.sha != '' }}
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          script: |
+            const owner = "${{ steps.prepare.outputs.owner }}";
+            const repo = "${{ steps.prepare.outputs.name }}";
+            const sha = "${{ steps.prepare.outputs.sha }}";
+            const body = `${{ steps.comment.outputs.body }}`;
+
+            if (!sha || !body) return;
+
+            await github.rest.repos.createCommitComment({
+              owner, repo, commit_sha: sha, body
+            });
